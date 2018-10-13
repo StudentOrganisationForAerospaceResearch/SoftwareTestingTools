@@ -114,7 +114,7 @@ def readHex(ser):
     print(binascii.hexlify(line))
 
 def readSerial(ser,data):
-    line = binascii.hexlify(ser.readline(256))
+    line = binascii.hexlify(ser.read(256))
     i = 0
     print(line)
     while(i<len(line)):
