@@ -1,6 +1,10 @@
 import serial
 import time
 import binascii
+import platform
+import cobs
+import sys
+import glob
 
 order = 'big'
 class AvionicsData:
@@ -114,10 +118,10 @@ def quit():
 
 def readHex(ser):
     line = ser.readline()
-    print(binascii.hexlify(line))
+    print(line.hex())
 
 def readSerial(ser,data):
-    line = binascii.hexlify(ser.readline())
+    line = ser.readline().hex()
     i = 0
     print(line)
     while(i<len(line)):
@@ -130,7 +134,7 @@ def readSerial(ser,data):
             else: i+=1
 
         # Barometer Data
-        elif((line[i:i+8])==b'32323232' and len(line)-i>=25):
+        elif((line[i:i+8])==0x32323232 and len(line)-i>=25):
             input = str(line[i+8:i+24])
             print(input)
             print(bytes.fromhex(input[2:18]))
@@ -164,7 +168,7 @@ def readSerial(ser,data):
             else: i+=1
 
         #Flight Phase
-        elif((line[i:i+8]==b'36363636') and (len(line)-i>=12)):
+        elif((line[i:i+8]==0x36363636) and (len(line)-i>=12)):
             if(line[i+10:i+11]==b'00'):
                 data.phs = line[i+8:i+9]
                 i+=11
@@ -178,7 +182,7 @@ def readSerial(ser,data):
             else: i+=1
 
         #No packet detected
-        else: i+=1
+        else: i+=1  
     print(data)
 
 
@@ -208,13 +212,16 @@ if __name__ == "__main__":
             # elif(comm == 'fill close'): fillClose(ser)
             # elif(comm == 'clear' or comm == 'cls'): print(chr(27) + "[2J")
             # else: print(comm,': Command Not Found')
-
-        ser = connect(input('Enter a Serial Port to connect to:'))
+        
+        if(platform.system() == 'Linux'):
+            ser = connect(input('Enter a Serial Port to connect to:'))
+        elif(platform.system() == 'Windows'):
+            ser = connect(input('Enter a COM Port to connect to (COMX):'))
         help()
 
-# Function to Launch Test
+# Functions to Launch Tests
 def launchTest(ser,data):
-    line = binascii.hexlify(ser.readline())
+    line = ser.readline().hex()
     i = 0
     #reads the flight phase
     flightphase = line[i + 8:i + 9]
@@ -222,11 +229,11 @@ def launchTest(ser,data):
     while(True):
         if(launchStatus == False):
             #read the start byte to make sure we are reading the right code (for flight phase)
-            if ((line[i:i+8] == b'36363636') and (len(line) - i >= 12)):
+            if ((line[i:i+8] == 0x36363636) and (len(line) - i >= 12)):
                 #make sure the stop byte is right too
-                if (line[i+10:i+11] == b'00'):
+                if (line[i+10:i+11] == 0x00):
                     #check if flight phase is 0
-                    if(flightphase != b'00'):
+                    if(flightphase != 0x00):
                         print("Launch Test failed")
                         return
                     #fire the rocket
@@ -235,8 +242,10 @@ def launchTest(ser,data):
                     print("Launch Test successful!")
         else:
             #if the flighphase = 1, that means the rocket has launched
-            if(flightphase == b'01'):
+            if(flightphase == 0x01):
                 line = binascii.hexlify(ser.readline())
                 break
 
-
+def cobsTest(ser):
+    encoded = cobs.encode(b'\x45\x00\x00\x2c\x4c\x79\x00\x00\x40\x06\x4F\x37')
+    ser.write(bytearray(encoded))
