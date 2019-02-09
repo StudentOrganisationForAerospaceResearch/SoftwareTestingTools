@@ -2,6 +2,8 @@ import serial
 import time
 import binascii
 import csv
+import sys
+import glob
 
 order = 'big'
 class AvionicsData:
@@ -111,32 +113,33 @@ def quit():
 
 def readHex(ser):
     line = ser.readline()
-    print(binascii.hexlify(line))
+    print((line).hex())
 
 def readSerial(ser,data):
-    line = binascii.hexlify(ser.read(256))
+    line = (ser.read(256)).hex()
     i = 0
+    base_number = 16
     print(line)
     while(i<len(line)):
-        if((line[i:i+8]==b'31313131') and (len(line)-i>=81)):
-            input = str(line[i+8:i+80])
+        if((line[i:i+4]==b'31313131') and (len(line)-i>=41)):
+            input = str(line[i+4:i+40])
             if(line[i+80:i+82]==b'00'):
-                data.imu[0] = int.from_bytes(bytes.fromhex(input[2:10]), byteorder=order, signed=True)
-                data.imu[1] = int.from_bytes(bytes.fromhex(input[10:18]), byteorder=order, signed=True)
-                data.imu[2] = int.from_bytes(bytes.fromhex(input[18:26]), byteorder=order, signed=True)
-                data.imu[3] = int.from_bytes(bytes.fromhex(input[26:34]), byteorder=order, signed=True)
-                data.imu[4] = int.from_bytes(bytes.fromhex(input[34:42]), byteorder=order, signed=True)
-                data.imu[5] = int.from_bytes(bytes.fromhex(input[42:50]), byteorder=order, signed=True)
-                i+=81
+                data.imu[0] = int(input[1:5],base_number)
+                data.imu[1] = int(input[5:9],base_number)
+                data.imu[2] = int(input[9:13],base_number)
+                data.imu[3] = int(input[13:17],base_number)
+                data.imu[4] = int(input[17:21],base_number)
+                data.imu[5] = int(input[21:25],base_number)
+                i+=41
             else: i+=1
 
         # Barometer Data
-        elif((line[i:i+8])==b'32323232' and len(line)-i>=25):
-            input = str(line[i+8:i+24])
-            if(line[i+24:i+26]==b'00'):
-                data.bar[0] = int.from_bytes(bytes.fromhex(input[2:10]), byteorder=order, signed=True)
-                data.bar[1] = int.from_bytes(bytes.fromhex(input[10:18]), byteorder=order, signed=True)
-                i+=25
+        elif((line[i:i+2])==0x32323232) and (len(line)-i>=13):
+            input = str(line[i+4:i+12])
+            if(line[i+24:i+26]==0x00):
+                data.bar[0] = int(input[1:5],base_number)
+                data.bar[1] = int(input[5:9],base_number)
+                i+=13
             else:
                 i+=1
 
@@ -211,3 +214,52 @@ if __name__ == "__main__":
 
         ser = connect(input('Enter a Serial Port to connect to:'))
         # help()
+
+def serial_reader():
+    """ Displays serial port list to user
+        Allows user to select port
+        Reads from serial port
+    """
+    print("Available serial ports:")
+    ports = serial_ports()
+    for index, port in enumerate(ports):
+        print(str(index) + ". " +port)
+
+    portNumber = input("\nType serial port number: ")
+    ser = serial.Serial(ports[int(portNumber)], 9600)   # Figure out why
+
+    while(True):
+        line = ser.readline()
+        print(line.decode("ascii"), end='')
+
+def serial_ports():
+    """ Lists serial port names
+
+        :raises EnvironmentError:
+            On unsupported or unknown platforms
+        :returns:
+            A list of the serial ports available on the system
+    """
+    if sys.platform.startswith('win'):
+        ports = ['COM%s' % (i + 1) for i in range(256)]
+    elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):
+        # this excludes your current terminal "/dev/tty"
+        ports = glob.glob('/dev/tty[A-Za-z]*')
+    elif sys.platform.startswith('darwin'):
+        ports = glob.glob('/dev/tty.*')
+    else:
+        raise EnvironmentError('Unsupported platform')
+
+    result = []
+    for port in ports:
+        try:
+            s = serial.Serial(port) # Check what this function does
+            s.close()
+            result.append(port)
+        except (OSError, serial.SerialException):
+            pass
+    return result
+
+
+if __name__ == '__main__':
+    serial_reader()
