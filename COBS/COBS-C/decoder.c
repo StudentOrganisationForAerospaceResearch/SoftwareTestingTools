@@ -1,6 +1,14 @@
-//DECODER FUNCTION
-#include <stdio.h>
+/**
+ * **********************************************************
+ * File Name        : decoder.c
+ * ***********************************************************
+ */
 
+/* Externs --------------------------------------------------*/
+#include "decoder.h"
+/**
+ * Performs decoding using Consistent Overhead Byte Stuffing (COBS)
+ */
 void cobs_dec(char *src, char len, char *dst)
 {
     char *end = src + len;
