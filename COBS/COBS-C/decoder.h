@@ -7,4 +7,11 @@
 /* Includes ------------------------------------------------*/
 #include <stdio.h>
 /* Prototypes -----------------------------------------------*/
-void cobs_dec(char *src, char len, char *dst);
+
+/**
+ * Performs decoding using Consistent Overhead Byte Stuffing (COBS)
+ * @param *src is the source pointer
+ * @param len is the anticipated length of the destination array
+ * @param *dst is the destination array
+ */
+void cobs_dec(unsigned char *src, unsigned char len, unsigned char *dst);

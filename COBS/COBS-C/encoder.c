@@ -6,31 +6,53 @@
 /* Externs --------------------------------------------------*/
 #include "encoder.h"
 
-/**
- * Performs encoding through consistent overhead byte stuffing (COBS)
- */
-void cobs_cod(char *src, unsigned char len, char *dst)
+unsigned int frameData(unsigned char *dataToEncode, unsigned long length, unsigned char *frameData)
 {
-    char *s = src, *end = src + len;
-    do
+    unsigned int lengthOfFramedData = stuffData(dataToEncode, length, frameData);
+    //adds the delimiter byte at the end
+    frameData[lengthOfFramedData++] = 0x00;
+    return lengthOfFramedData;
+}
+
+unsigned int stuffData(unsigned char *dataToEncode, unsigned long length, unsigned char *encodedData)
+{
+    unsigned int lengthOfEncodedData = length + 1;
+    unsigned char *end = dataToEncode + length;
+    unsigned char *code_ptr = encodedData++;
+    unsigned char code = 0x01;
+
+    while (dataToEncode < end)
     {
-        while (*src != '0')
-            src++;
-        int len = (src - s);
-        *dst++ = (len + 1) + '0';
-        strcpy(dst, s);
-        dst += len;
-        s = ++src;
-    } while (src <= end);
+        if (*dataToEncode == 0)
+        {
+            FINISH_BLOCK(code);
+        }
+        else
+        {
+            *encodedData++ = *dataToEncode;
+            code++;
+
+            if (code == 0xFF)
+            {
+                FINISH_BLOCK(code);
+            }
+        }
+
+        dataToEncode++;
+    }
+
+    FINISH_BLOCK(code);
+    return lengthOfEncodedData;
 }
 
 int main(void)
 {
-    char arr[] = "5988088910"; //must have a zero at the end to work
-    char dest[sizeof(arr) - 1];
-    cobs_cod(arr, sizeof(arr), dest);
-    for (int i = 0; i < sizeof(dest); i++)
+    //test data in testInput
+    unsigned char testInput[10] = {0x20, 0x41, 0x00, 0x22, 0x15, 0x17, 0x00, 0x39, 0x21, 0x05};
+    unsigned char output[sizeof(testInput) + 2];
+    frameData(testInput, sizeof(testInput), output);
+    for (int i = 0; i < sizeof(output); i++)
     {
-        printf("%c", dest[i]);
+        printf("%02x ", output[i]);
     }
 }
