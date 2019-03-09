@@ -23,7 +23,7 @@ static const int SEA_LEVEL_PRESSURE = 101421.93903699999;
 
 static const double KALMAN_GAIN[][2] =
 {
-    {0.105553059*2, 0.109271566},
+    {0.105553059 * 2, 0.109271566},
     {0.0361533034, 0.0661198847},
     {0.000273178915, 0.618030079}
 };
@@ -49,13 +49,17 @@ struct KalmanStateVector
 char* getfield(char* line, int num)
 {
     char* tok;
+
     for (tok = strtok(line, ",");
             tok && *tok;
             tok = strtok(NULL, ",\n"))
     {
         if (!--num)
+        {
             return tok;
+        }
     }
+
     return NULL;
 }
 
@@ -118,101 +122,102 @@ struct KalmanStateVector filterSensors(
  */
 int main()
 {
-	/* Touchy --------------------------------------------------------------- */
+    /* Touchy --------------------------------------------------------------- */
 
-	// File names
-	char* inputFileName		= "KalmanTestInput.csv";
-	char* outputFileName	= "KalmanTestOutput.csv";
+    // File names
+    char* inputFileName		= "KalmanTestInput.csv";
+    char* outputFileName	= "KalmanTestOutput.csv";
 
-	// Line max settings
-	int lineMaxEnable	= 0;
-	int lineMax			= 3;
+    // Line max settings
+    int lineMaxEnable	= 0;
+    int lineMax			= 3;
 
-	// Initial readings before launch
-	double lastTime	= 1174.0074;
-	double lastAlt	= 1289;
+    // Initial readings before launch
+    double lastTime	= 1174.0074;
+    double lastAlt	= 1289;
 
-	// Field indexes. 1 indexed. I'm sorry.
-	int timeIndex			= 1;
-	int accelIndex			= 15;
-	int pressureIndex		= 10;
-	int readAltitudeIndex	= 11;
+    // Field indexes. 1 indexed. I'm sorry.
+    int timeIndex			= 1;
+    int accelIndex			= 15;
+    int pressureIndex		= 10;
+    int readAltitudeIndex	= 11;
 
-	// Detectionp parameters
-	int detectStart	= 200; // Line to start checking for descent on
-	int desTrigger	= 3; // Number of descents in a row to confirm the rocket is descending
+    // Detectionp parameters
+    int detectStart	= 200; // Line to start checking for descent on
+    int desTrigger	= 3; // Number of descents in a row to confirm the rocket is descending
 
-	/* No Touchy ------------------------------------------------------------ */
+    /* No Touchy ------------------------------------------------------------ */
 
-	// IO
-	FILE* inputStream	= fopen(inputFileName, "r");
-	FILE* outputStream	= fopen(outputFileName, "w");
-	fprintf(outputStream, "dt, Acceleration, Pressure, Their Altitude, Our Altitude, DES\n");
+    // IO
+    FILE* inputStream	= fopen(inputFileName, "r");
+    FILE* outputStream	= fopen(outputFileName, "w");
+    fprintf(outputStream, "dt, Acceleration, Pressure, Their Altitude, Our Altitude, DES\n");
     char line[1024];
 
-	// Parameters
-	int i			= 0; // Number of lines processed
-	int descount	= 0; // Number of descents counted in a row
-	double DES		= 0; // "Digital" parameter, stores altitude of descent detection
+    // Parameters
+    int i			= 0; // Number of lines processed
+    int descount	= 0; // Number of descents counted in a row
+    double DES		= 0; // "Digital" parameter, stores altitude of descent detection
 
-	// Kalman Vector
-	struct KalmanStateVector ksv;
-	ksv.altitude = lastAlt;
+    // Kalman Vector
+    struct KalmanStateVector ksv;
+    ksv.altitude = lastAlt;
 
-	// For each line in the input file
+    // For each line in the input file
     while (fgets(line, 1024, inputStream) && ((lineMaxEnable && i <= lineMax) || ~lineMaxEnable))
     {
-		// The empty pointers are things to help strtok. They're stupid, but they work.
+        // The empty pointers are things to help strtok. They're stupid, but they work.
 
-		// Get the time
-		char*	timeStr			= getfield(strdup(line), 1);
-		char*	ptr1;
-		double	time			= strtod(timeStr, &ptr1) / 10000;
-		double	dt				= time - lastTime;
+        // Get the time
+        char*	timeStr			= getfield(strdup(line), 1);
+        char*	ptr1;
+        double	time			= strtod(timeStr, &ptr1) / 10000;
+        double	dt				= time - lastTime;
 
-		// Get the acceleration
-		char*	accelerationStr	= getfield(strdup(line), 15);
-		char*	ptr2;
-		double	acceleration	= strtod(accelerationStr, &ptr2);
+        // Get the acceleration
+        char*	accelerationStr	= getfield(strdup(line), 15);
+        char*	ptr2;
+        double	acceleration	= strtod(accelerationStr, &ptr2);
 
-		// Get the pressure
-		char*	pressureStr		= getfield(strdup(line), 10);
-		char*	ptr3;
-		double	pressure		= strtod(pressureStr, &ptr3);
+        // Get the pressure
+        char*	pressureStr		= getfield(strdup(line), 10);
+        char*	ptr3;
+        double	pressure		= strtod(pressureStr, &ptr3);
 
-		// Get the read altitude
-		char*	altitudeStr		= getfield(strdup(line), 11);
-		char*	ptr4;
-		double	theirAltitude	= strtod(altitudeStr, &ptr4);
+        // Get the read altitude
+        char*	altitudeStr		= getfield(strdup(line), 11);
+        char*	ptr4;
+        double	theirAltitude	= strtod(altitudeStr, &ptr4);
 
-		// Calculate our altitude
-		ksv = filterSensors(ksv, acceleration, pressure, dt);
+        // Calculate our altitude
+        ksv = filterSensors(ksv, acceleration, pressure, dt);
 
-		// Check for descent
-		if (i >= detectStart)
-		{
-			if (ksv.altitude < lastAlt)
-			{
-				descount++;
-			}
-			else
-			{
-				descount = 0;
-			}
-			if (descount > desTrigger && DES == 0)
-			{
-				DES = ksv.altitude; // Activate descent stuff!
-			}
-		}
+        // Check for descent
+        if (i >= detectStart)
+        {
+            if (ksv.altitude < lastAlt)
+            {
+                descount++;
+            }
+            else
+            {
+                descount = 0;
+            }
 
-		// Log data
-		fprintf(outputStream, "%f,%f,%f,%f,%f,%f\n", dt, acceleration, pressure, theirAltitude, ksv.altitude, DES);
-		
-		// Update parameters
-		lastAlt = ksv.altitude;
-		lastTime = time;
-		i++;
+            if (descount > desTrigger && DES == 0)
+            {
+                DES = ksv.altitude; // Activate descent stuff!
+            }
+        }
+
+        // Log data
+        fprintf(outputStream, "%f,%f,%f,%f,%f,%f\n", dt, acceleration, pressure, theirAltitude, ksv.altitude, DES);
+
+        // Update parameters
+        lastAlt = ksv.altitude;
+        lastTime = time;
+        i++;
     }
 
-	printf("Done.\n");
+    printf("Done.\n");
 }
