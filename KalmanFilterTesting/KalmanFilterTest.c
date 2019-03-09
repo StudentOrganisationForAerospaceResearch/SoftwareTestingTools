@@ -68,9 +68,6 @@ char* getfield(char* line, int num)
  * Takes an old state vector and current state measurements and
  * converts them into a prediction of the rocket's current state.
  *
- * This is the exact code from AvionicsSoftware.
- * It has not been changed.
- *
  * Params:
  *   oldState        - (KalmanStateVector) Past altitude, velocity and acceleration
  *   currentAccel    - (double) Measured acceleration
