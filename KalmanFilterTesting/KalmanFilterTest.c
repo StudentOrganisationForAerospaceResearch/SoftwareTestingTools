@@ -163,7 +163,7 @@ int main()
     // For each line in the input file
     while (fgets(line, 1024, inputStream) && ((lineMaxEnable && i <= lineMax) || ~lineMaxEnable))
     {
-        // The empty pointers are things to help strtok. They're stupid, but they work.
+        // The empty pointers are things to help strtod. They're stupid, but they work.
 
         // Get the time
         char*  timeStr         = getfield(strdup(line), 1);
