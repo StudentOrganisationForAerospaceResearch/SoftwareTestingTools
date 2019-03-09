@@ -43,8 +43,8 @@ struct KalmanStateVector
  * Gets the ith field in a line seperated by commas.
  *
  * Params:
- *   line	- (char*) Pointer to a string seperated by commas
- *   num	- (int) The number of the field to get. 1 indexed. I'm sorry.
+ *   line - (char*) Pointer to a string seperated by commas
+ *   num  - (int) The number of the field to get. 1 indexed. I'm sorry.
  */
 char* getfield(char* line, int num)
 {
@@ -72,13 +72,13 @@ char* getfield(char* line, int num)
  * It has not been changed.
  *
  * Params:
- *   oldState 			- (KalmanStateVector) Past altitude, velocity and acceleration
- *   currentAccel 		- (double) Measured acceleration
- *   currentAltitude 	- (double) Measured altitude
- *   dt 				- (double) Time since last step. In ms.
+ *   oldState        - (KalmanStateVector) Past altitude, velocity and acceleration
+ *   currentAccel    - (double) Measured acceleration
+ *   currentAltitude - (double) Measured altitude
+ *   dt              - (double) Time since last step. In ms.
  *
  * Returns:
- *   newState 			- (KalmanStateVector) Current altitude, velocity and acceleration
+ *   newState        - (KalmanStateVector) Current altitude, velocity and acceleration
  */
 struct KalmanStateVector filterSensors(
     struct KalmanStateVector oldState,
@@ -125,39 +125,39 @@ int main()
     /* Touchy --------------------------------------------------------------- */
 
     // File names
-    char* inputFileName		= "KalmanTestInput.csv";
-    char* outputFileName	= "KalmanTestOutput.csv";
+    char* inputFileName  = "KalmanTestInput.csv";
+    char* outputFileName = "KalmanTestOutput.csv";
 
     // Line max settings
-    int lineMaxEnable	= 0;
-    int lineMax			= 3;
+    int lineMaxEnable = 0;
+    int lineMax       = 3;
 
     // Initial readings before launch
-    double lastTime	= 1174.0074;
-    double lastAlt	= 1289;
+    double lastTime = 1174.0074;
+    double lastAlt  = 1289;
 
     // Field indexes. 1 indexed. I'm sorry.
-    int timeIndex			= 1;
-    int accelIndex			= 15;
-    int pressureIndex		= 10;
-    int readAltitudeIndex	= 11;
+    int timeIndex         = 1;
+    int accelIndex        = 15;
+    int pressureIndex     = 10;
+    int readAltitudeIndex = 11;
 
     // Detectionp parameters
-    int detectStart	= 200; // Line to start checking for descent on
-    int desTrigger	= 3; // Number of descents in a row to confirm the rocket is descending
+    int detectStart = 200; // Line to start checking for descent on
+    int desTrigger  = 3; // Number of descents in a row to confirm the rocket is descending
 
     /* No Touchy ------------------------------------------------------------ */
 
     // IO
-    FILE* inputStream	= fopen(inputFileName, "r");
-    FILE* outputStream	= fopen(outputFileName, "w");
+    FILE* inputStream  = fopen(inputFileName, "r");
+    FILE* outputStream = fopen(outputFileName, "w");
     fprintf(outputStream, "dt, Acceleration, Pressure, Their Altitude, Our Altitude, DES\n");
     char line[1024];
 
     // Parameters
-    int i			= 0; // Number of lines processed
-    int descount	= 0; // Number of descents counted in a row
-    double DES		= 0; // "Digital" parameter, stores altitude of descent detection
+    int i        = 0; // Number of lines processed
+    int descount = 0; // Number of descents counted in a row
+    double DES   = 0; // "Digital" parameter, stores altitude of descent detection
 
     // Kalman Vector
     struct KalmanStateVector ksv;
@@ -169,25 +169,25 @@ int main()
         // The empty pointers are things to help strtok. They're stupid, but they work.
 
         // Get the time
-        char*	timeStr			= getfield(strdup(line), 1);
-        char*	ptr1;
-        double	time			= strtod(timeStr, &ptr1) / 10000;
-        double	dt				= time - lastTime;
+        char*  timeStr         = getfield(strdup(line), 1);
+        char*  ptr1;
+        double time            = strtod(timeStr, &ptr1) / 10000;
+        double dt              = time - lastTime;
 
         // Get the acceleration
-        char*	accelerationStr	= getfield(strdup(line), 15);
-        char*	ptr2;
-        double	acceleration	= strtod(accelerationStr, &ptr2);
+        char*  accelerationStr = getfield(strdup(line), 15);
+        char*  ptr2;
+        double acceleration    = strtod(accelerationStr, &ptr2);
 
         // Get the pressure
-        char*	pressureStr		= getfield(strdup(line), 10);
-        char*	ptr3;
-        double	pressure		= strtod(pressureStr, &ptr3);
+        char*  pressureStr     = getfield(strdup(line), 10);
+        char*  ptr3;
+        double pressure        = strtod(pressureStr, &ptr3);
 
         // Get the read altitude
-        char*	altitudeStr		= getfield(strdup(line), 11);
-        char*	ptr4;
-        double	theirAltitude	= strtod(altitudeStr, &ptr4);
+        char*  altitudeStr     = getfield(strdup(line), 11);
+        char*  ptr4;
+        double theirAltitude   = strtod(altitudeStr, &ptr4);
 
         // Calculate our altitude
         ksv = filterSensors(ksv, acceleration, pressure, dt);
