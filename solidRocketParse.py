@@ -2,7 +2,7 @@ import serial
 import time
 import binascii
 import csv
-
+import datetime
 order = 'big'
 class AvionicsData:
     def __init__(self):
@@ -16,17 +16,17 @@ class AvionicsData:
 
     def __str__(self):
         phases = ["NA!", "PRELAUNCH", "BURN", "COAST", "DROGUE_DESCENT", "MAIN_DESCENT", "ABORT"]
-
+        ts = datetime.utcnow()
         string="IMU - ACCEL:\t"+ str(self.imu[0:3])+"\n"
         string+="IMU - GYRO:\t"+ str(self.imu[3:6])+"\n"
         string+="BAR - PRESS:\t"+ str(self.bar[0]) +"\n"
         string+="BAR - TEMP:\t"+  str(self.bar[1])+"\n"
         # string+="PHS -  PHASE:\t"+ str(phases[self.phs + 1])+"\n"
-
+        print('The UTC time is : ' ,ts) 
         with open('fligthData.csv', 'a') as csvfile:
         	spamwriter = csv.writer(csvfile, delimiter=',', quoting=csv.QUOTE_MINIMAL)
         	spamwriter.writerow([str(self.imu[0]), str(self.imu[1]), str(self.imu[2]), str(self.imu[3]), str(self.imu[4]), str(self.imu[5]), str(self.bar[0]), str(self.bar[1])])
-
+            spamwriter.writerow(ts)
         return string
 
 def arm(ser):
