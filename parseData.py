@@ -1,6 +1,7 @@
 import serial
 import time
 import binascii
+import csv
 
 order = 'big'
 class AvionicsData:
@@ -8,173 +9,118 @@ class AvionicsData:
         self.imu = [0] * 9
         self.bar = [0] * 2
         self.gps = [0] * 4
-        self.oxi = 0
-        self.cmb = 0
+        self.oxi = -1
+        self.cmb = -1
         self.phs = -1
-        self.vnt = 0
+        self.upperVnt = -1
+        self.injValve = -1
+        self.lowerVnt = -1
 
     def __str__(self):
-        phases = ["NA!", "PRELAUNCH", "BURN", "COAST", "DROGUE_DESCENT", "MAIN_DESCENT", "ABORT"]
+        phases = ["NA", "PRELAUNCH", "ARM", "BURN", "COAST", "DROGUE_DESCENT", "MAIN_DESCENT", "POSTLAUNCH", 
+        "ABORT_COMMAND_RECEIVED", "ABORT_COMMUNICATION_ERROR", "ABORT_OXIDIZER_PRESSURE", "ABORT_UNSPECIFIED_REASON"]
+        valveStatus = ["NA","Closed", "Open"]
 
-        string="IMU - ACCEL:\t"+ str(self.imu[0:3])+"\n"
-        string+="IMU - GYRO:\t"+ str(self.imu[3:6])+"\n"
-        string+="IMU - MAG:\t" + str(self.imu[6:9]) +"\n"
-        string+="BAR - PRESS:\t"+ str(self.bar[0]) +"\n"
-        string+="BAR - TEMP:\t"+  str(self.bar[1])+"\n"
-        string+="GPS - ALT:\t"+ str(self.gps[0])+"\n"
-        string+="GPS - TIME:\t"+ str(self.gps[1])+"\n"
-        string+="GPS - LAT:\t"+ str(self.gps[2])+"\n"
-        string+="GPS - LONG:\t"+ str(self.gps[3])+"\n"
-        string+="OXI - PRESS:\t"+ str(self.oxi)+"\n"
-        string+="CMB - PRESS:\t"+ str(self.cmb)+"\n"
-        string+="VNT - STATUS:\t"+ str(self.vnt)+"\n"
-        string+="PHS -  PHASE:\t"+ str(phases[self.phs + 1])+"\n"
+        string="IMU - ACCEL:\t\t"+ str(self.imu[0:3])+" mg"+"\n"
+        string+="IMU - GYRO:\t\t"+ str(self.imu[3:6])+" mdps"+"\n"
+        string+="BAR - PRESS:\t\t"+ str(self.bar[0]/100) +" mbar"+"\n"
+        string+="BAR - TEMP:\t\t"+  str(self.bar[1]/100)+" degrees C"+"\n"
+        string+="OXI - P:\t\t"+ str(self.oxi/1000)+" psi"+"\n"
+        string+="CMB - P:\t\t"+ str(self.cmb/1000)+" psi"+"\n"
+        string+="PHS -  PHASE:\t\t"+ str(phases[self.phs+1])+"\n"
+        string+="Inj Valve:\t\t" + str(valveStatus[self.injValve+1])+"\n"
+        string+="Lower Vent:\t\t" + str(valveStatus[self.lowerVnt+1])+"\n"
+
+        with open('fligthData.csv', 'a') as csvfile:
+        	spamwriter = csv.writer(csvfile, delimiter=',', quoting=csv.QUOTE_MINIMAL)
+        	spamwriter.writerow([str(self.imu[0]), str(self.imu[1]), str(self.imu[2]), str(self.imu[3]), str(self.imu[4]), str(self.imu[5]), str(self.bar[0]), str(self.bar[1])])
 
         return string
 
-def arm(ser):
-    ser.write(bytearray.fromhex('2100'))
-    time.sleep(1)
-    print('Arm Command Sent!\n')
-
-def heartbeat(ser):
-    ser.write(bytearray.fromhex('4600'))
-    time.sleep(1)
-    print('Heartbeat Command Sent!\n')
-
-
-def reset(ser):
-    ser.write(bytearray.fromhex('4F00'))
-    time.sleep(1)
-    print('Reset Command Sent!\n')
-
-def fire(ser):
-    ser.write(bytearray.fromhex('2000'))
-    time.sleep(1)
-    print('Fire Command Sent!\n')
-
-def openInjectionValve(ser):
-    ser.write(bytearray.fromhex('2A00'))
-    time.sleep(1)
-    print('Open Injection Valve Command Sent!\n')
-
-
-def closeInjectionValve(ser):
-    ser.write(bytearray.fromhex('2B00'))
-    time.sleep(1)
-    print('Close Injection Valve Command Sent!\n')
-
-
-def abort(ser):
-    ser.write(bytearray.fromhex('2F00'))
-    time.sleep(1)
-    print('Abort Command Sent!\n')
-
-def setBaud(ser,baud):
-	ser.baudrate = baud
-	time.sleep(1)
-	ser.flush()
-	print("Baudrate set to: ", baud)
-
-def fillOpen(ser):
-    ser.write(bytearray.fromhex('2200'))
-    time.sleep(1)
-    print('Fill Valve Open Sent!\n')
-
-def fillClose(ser):
-    ser.write(bytearray.fromhex('2300'))
-    time.sleep(1)
-    print('Fill Valve Close Sent!\n')
-
-
-def help():
-    print('\nList of commands:\n----------------------------------')
-    print('abort\t\t send the abort command 0x2F')
-    print('arm\t\t send the arm command 0x21')
-    print('clear\t\t clears the terminal')
-    print('disconnect\t disconnect and connect to another comm port')
-    print('fire\t\t send the fire command 0x20')
-    print('help\t\t prints this help menu')
-    print('fill [open|close]\t opens or closes the Nitrous Fill Valve (command 0x22/0x23)')
-    print('quit\t\t closes the serial terminal and program')
-    print('read\t\t reads the serial buffer and displays the latest data\n')
-
-def connect(port):
-    ser = serial.Serial(port, 4800, timeout=0)
-    time.sleep(2)
-    return ser
+def twos_complement(hexstr,bits):
+    value = int(hexstr,16)
+    if value & (1 << (bits-1)):
+        value -= 1 << bits
+    return value
 
 def disconnect(ser):
     ser.close()
     time.sleep(1)
     return None
-def quit():
-    exit()
-
-
-def readHex(ser):
-    line = ser.readline()
-    print(binascii.hexlify(line))
 
 def readSerial(ser,data):
-    line = binascii.hexlify(ser.readline())
+    line = ser.read(256).hex()
     i = 0
     print(line)
     while(i<len(line)):
-        #IMU Data
-        if((line[i:i+4]==0x31313131) and (len(line)-i>=41)):
-            if(line[i+40]==0x00):
-                for j in range(9):
-                    data.imu[j] = int.from_bytes(line[i+4+(j*4):line[i+8+(j*4)]], byteorder=order, signed=True)
-                i+=41
+        # IMU Data
+        if((line[i:i+8]=='31313131') and (len(line)-i>=81)):
+            if(line[i+80:i+82]=='00'):
+                print(line[i:i+82])
+                data.imu[0] = twos_complement(line[i+8:i+16], 32)
+                data.imu[1] = twos_complement(line[i+16:i+24], 32)
+                data.imu[2] = twos_complement(line[i+24:i+32], 32)
+                data.imu[3] = twos_complement(line[i+32:i+40], 32)
+                data.imu[4] = twos_complement(line[i+40:i+48], 32)
+                data.imu[5] = twos_complement(line[i+48:i+56], 32)
+                i+=81
             else: i+=1
 
         # Barometer Data
-        elif((line[i:i+8])==b'32323232' and len(line)-i>=25):
-            input = str(line[i+8:i+24])
-            print(input)
-            print(bytes.fromhex(input[2:18]))
-            if(line[i+24:i+26]==b'00'):
-                data.bar[0] = int.from_bytes(bytes.fromhex(input[2:10]), byteorder=order, signed=True)
-                data.bar[1] = int.from_bytes(bytes.fromhex(input[10:18]), byteorder=order, signed=True)
+        elif((line[i:i+8])=='32323232' and len(line)-i>=25):
+            if(line[i+24:i+26]=='00'):
+                print(line[i:i+26])
+                data.bar[0] = twos_complement(line[i+8:i+16], 32)
+                data.bar[1] = twos_complement(line[i+16:i+24], 32)
                 i+=25
             else:
                 i+=1
 
         #GPS Data
-        elif((line[i:i+4]==0x33333333) and (len(line)-i>=21)):
-            if(line[i+20]==0x00):
-                for j in range(9):
-                    data.imu[j] = int.from_bytes(line[i+4+(j*4):i+8+(j*4)], byteorder=order, signed=True)
-                i+=21
-            else: i+=1
+        elif((line[i:i+8]=='33333333') and (len(line)-i>=41)):
+            if(line[i+40:i+42]=='00'):
+                print(line[i:i+42])
+                data.gps[0] = twos_complement(line[i+8:i+16], 32)
+                data.gps[1] = twos_complement(line[i+16:i+24], 32)
+                data.gps[2] = twos_complement(line[i+24:i+32], 32)
+                data.gps[3] = twos_complement(line[i+32:i+40], 32)  
+                i+=41
+            else:
+                i+=1
 
         #Oxidizer Tank Pressure
-        elif((line[i:i+4]==0x34343434) and (len(line)-i>=9)):
-            if(line[i+8]==0x00):
-                data.oxi = int.from_bytes(line[i+4:i+8], byteorder=order, signed=True)
-                i+9
+        elif((line[i:i+8]=='34343434') and (len(line)-i>=17)):
+            if(line[i+16:i+18]=='00'):
+                data.oxi = twos_complement(line[i+8:i+16], 32)
+                i+=17
             else: i+=1
 
         #Combustion Chamber Pressure
-        elif((line[i]==0x35353535) and (len(line)-i>=9)):
-            if(line[i+8]==0x00):
-                data.cmb = int.from_bytes(line[i+4:i+8], byteorder=order, signed=True)
-                i+=9
+        elif((line[i:i+8]=='35353535') and (len(line)-i>=17)):
+            if(line[i+16:i+18]=='00'):
+                data.cmb = twos_complement(line[i+8:i+16], 32)
+                i+=17
             else: i+=1
 
         #Flight Phase
-        elif((line[i:i+8]==b'36363636') and (len(line)-i>=12)):
-            if(line[i+10:i+11]==b'00'):
-                data.phs = line[i+8:i+9]
-                i+=11
+        elif((line[i:i+8]=='36363636') and (len(line)-i>=13)):
+            if(line[i+10:i+12]=='00'):
+                data.phs = int(line[i+8:i+10], 16)
+                i+=12
             else: i+=1
 
-        #Vent Status
-        elif((line[i]==0x37373737) and (len(line)-i>=6)):
-            if(line[i+5]==0x00):
-                data.vnt = line[i+4]
-                i+=6
+        #Injection Valve Status
+        elif((line[i:i+8]=='38383838') and (len(line)-i>=13)):
+            if(line[i+10:i+12]=='00'):
+                data.injValve = int(line[i+8:i+10], 16)
+                i+=12
+            else: i+=1
+
+        #Lower Vent Valve
+        elif((line[i:i+8]=='39393939') and (len(line)-i>=13)):
+            if(line[i+10:i+12]=='00'):
+                data.lowerVnt = int(line[i+8:i+10], 16)
+                i+=12
             else: i+=1
 
         #No packet detected
@@ -186,57 +132,9 @@ if __name__ == "__main__":
     ser = None
     data = AvionicsData()
     while(True):
+        port = input('Enter a Serial Port to connect to:') #Linux: /dev/ttyUSBx, Windows: COMx
+        ser = serial.Serial(port, 9600, timeout=0)
 
         while(ser!=None):
             time.sleep(1)
             readSerial(ser, data)
-            # comm = input("Awaiting command (enter help for list of commands):")
-            # if(comm == 'arm'): arm(ser)
-            # elif(comm == 'heartbeat'): heartbeat(ser)
-            # elif(comm == 'reset'): reset(ser)
-            # elif(comm == 'openinj'): openInjectionValve(ser)
-            # elif(comm == 'closeinj'): closeInjectionValve(ser)
-            # elif(comm == 'fire'): fire(ser)
-            # elif(comm == 'abort'): abort(ser)
-            # elif(comm == 'help'): help()
-            # elif(comm == 'disconnect'): ser = disconnect(ser)
-            # elif(comm == 'quit'): exit()
-            # elif(comm == 'hex'): readHex(ser)
-            # elif(comm == 'read'): readSerial(ser, data)
-            # elif(comm[0:4] == 'baud'): setBaud(ser, int(comm[5:]))
-            # elif(comm == 'fill open'): fillOpen(ser)
-            # elif(comm == 'fill close'): fillClose(ser)
-            # elif(comm == 'clear' or comm == 'cls'): print(chr(27) + "[2J")
-            # else: print(comm,': Command Not Found')
-
-        ser = connect(input('Enter a Serial Port to connect to:'))
-        help()
-
-# Function to Launch Test
-def launchTest(ser,data):
-    line = binascii.hexlify(ser.readline())
-    i = 0
-    #reads the flight phase
-    flightphase = line[i + 8:i + 9]
-    launchStatus = False
-    while(True):
-        if(launchStatus == False):
-            #read the start byte to make sure we are reading the right code (for flight phase)
-            if ((line[i:i+8] == b'36363636') and (len(line) - i >= 12)):
-                #make sure the stop byte is right too
-                if (line[i+10:i+11] == b'00'):
-                    #check if flight phase is 0
-                    if(flightphase != b'00'):
-                        print("Launch Test failed")
-                        return
-                    #fire the rocket
-                    fire(ser)
-                    launchStatus = True
-                    print("Launch Test successful!")
-        else:
-            #if the flighphase = 1, that means the rocket has launched
-            if(flightphase == b'01'):
-                line = binascii.hexlify(ser.readline())
-                break
-
-

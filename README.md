@@ -1,4 +1,6 @@
 # SoftwareTestingTools
 
 Avionics software testing tools:
-- Mock ground systems communication
+- Parse radio data
+- Mock Ground Systems commands
+- Mock Avionics data transmit
