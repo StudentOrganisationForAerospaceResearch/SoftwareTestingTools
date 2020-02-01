@@ -25,10 +25,10 @@ class AvionicsData:
         string+="IMU - GYRO:\t\t"+ str(self.imu[3:6])+" mdps"+"\n"
         string+="BAR - PRESS:\t\t"+ str(self.bar[0]/100) +" mbar"+"\n"
         string+="BAR - TEMP:\t\t"+  str(self.bar[1]/100)+" degrees C"+"\n"
-        string+="GPS - TIME:\t\t"+ str(self.gps[0]) + "\n"
+        string+="GPS - TIME:\t\t%06d UTC" % self.gps[0] + "\n"
         #Convert GPS coordinates to latitude/longitude that Google Maps accepts
-        string+="GPS - LAT:\t\t"+ str(self.gps[1] + self.gps[2]/100000/60) + " " + str(self.gps[3]) + "\n"
-        string+="GPS - LONG:\t\t"+ str(self.gps[4] + self.gps[5]/100000/60) + " " + str(self.gps[6]) + "\n"
+        string+="GPS - LAT:\t\t%.5f" % (self.gps[1] + self.gps[2]/100000/60) + " " + str(self.gps[3]) + "\n"
+        string+="GPS - LONG:\t\t%.5f" % (self.gps[4] + self.gps[5]/100000/60) + " " + str(self.gps[6]) + "\n"
         string+="GPS - ALT:\t\t" + str(self.gps[7]) + " m" + "\n"
         string+="OXI - P:\t\t"+ str(self.oxi/1000)+" psi"+"\n"
         string+="CMB - P:\t\t"+ str(self.cmb/1000)+" psi"+"\n"
