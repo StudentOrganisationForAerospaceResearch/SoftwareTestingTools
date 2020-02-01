@@ -26,6 +26,7 @@ class AvionicsData:
         string+="BAR - PRESS:\t\t"+ str(self.bar[0]/100) +" mbar"+"\n"
         string+="BAR - TEMP:\t\t"+  str(self.bar[1]/100)+" degrees C"+"\n"
         string+="GPS - TIME:\t\t"+ str(self.gps[0]) + "\n"
+        #Convert GPS coordinates to latitude/longitude that Google Maps accepts
         string+="GPS - LAT:\t\t"+ str(self.gps[1] + self.gps[2]/100000/60) + " " + str(self.gps[3]) + "\n"
         string+="GPS - LONG:\t\t"+ str(self.gps[4] + self.gps[5]/100000/60) + " " + str(self.gps[6]) + "\n"
         string+="GPS - ALT:\t\t" + str(self.gps[7]) + " m" + "\n"
@@ -57,7 +58,7 @@ def readSerial(ser,data):
     i = 0
     print(line)
     while(i<len(line)):
-        # IMU Data
+        #IMU Data
         if((line[i:i+8]=='31313131') and (len(line)-i>=81)):
             if(line[i+80:i+82]=='00'):
                 print(line[i:i+82])
@@ -70,7 +71,7 @@ def readSerial(ser,data):
                 i+=81
             else: i+=1
 
-        # Barometer Data
+        #Barometer Data
         elif((line[i:i+8])=='32323232' and len(line)-i>=25):
             if(line[i+24:i+26]=='00'):
                 print(line[i:i+26])
