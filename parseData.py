@@ -3,6 +3,9 @@ import time
 import binascii
 import csv
 
+phases = ["NA", "PRELAUNCH", "ARM", "BURN", "COAST", "DROGUE_DESCENT", "MAIN_DESCENT", "POSTLAUNCH", 
+        "ABORT_COMMAND_RECEIVED", "ABORT_COMMUNICATION_ERROR", "ABORT_OXIDIZER_PRESSURE", "ABORT_UNSPECIFIED_REASON"]
+valveStatus = ["NA","Closed", "Open"]
 order = 'big'
 class AvionicsData:
     def __init__(self):
@@ -17,9 +20,6 @@ class AvionicsData:
         self.lowerVnt = -1
 
     def __str__(self):
-        phases = ["NA", "PRELAUNCH", "ARM", "BURN", "COAST", "DROGUE_DESCENT", "MAIN_DESCENT", "POSTLAUNCH", 
-        "ABORT_COMMAND_RECEIVED", "ABORT_COMMUNICATION_ERROR", "ABORT_OXIDIZER_PRESSURE", "ABORT_UNSPECIFIED_REASON"]
-        valveStatus = ["NA","Closed", "Open"]
 
         string="IMU - ACCEL:\t\t"+ str(self.imu[0:3])+" mg"+"\n"
         string+="IMU - GYRO:\t\t"+ str(self.imu[3:6])+" mdps"+"\n"
@@ -36,11 +36,15 @@ class AvionicsData:
         string+="Inj Valve:\t\t" + str(valveStatus[self.injValve+1])+"\n"
         string+="Lower Vent:\t\t" + str(valveStatus[self.lowerVnt+1])+"\n"
 
-        with open('fligthData.csv', 'a') as csvfile:
-            spamwriter = csv.writer(csvfile, delimiter=',', quoting=csv.QUOTE_MINIMAL)
-            spamwriter.writerow([str(self.imu[0]), str(self.imu[1]), str(self.imu[2]), str(self.imu[3]), str(self.imu[4]), str(self.imu[5]), str(self.bar[0]), str(self.bar[1])])
-
         return string
+    def writeToCSV(self):
+        with open('fligthData.csv', 'a') as csvfile:
+            spamwriter = csv.writer(csvfile, delimiter=',', quoting=csv.QUOTE_MINIMAL) 
+            spamwriter.writerow([str(self.imu[0:3]), str(self.imu[3:6]), str(self.bar[0]/100), str(self.bar[1]/100), str(self.gps[0]),	\
+								str(self.gps[1]+(self.gps[2]/100000/60)) + " " + str(self.gps[3]), str(self.gps[4] + self.gps[5]/100000/60) + " " + str(self.gps[6]),	\
+								str(self.gps[7]), str(self.oxi/1000), str(self.cmb/1000), \
+								str(phases[self.phs+1]), str(valveStatus[self.injValve+1]), str(valveStatus[self.lowerVnt+1])])
+
 
 def twos_complement(hexstr,bits):
     value = int(hexstr,16)
@@ -62,12 +66,12 @@ def readSerial(ser,data):
         if((line[i:i+8]=='31313131') and (len(line)-i>=81)):
             if(line[i+80:i+82]=='00'):
                 print(line[i:i+82])
-                data.imu[0] = twos_complement(line[i+8:i+16], 32)
-                data.imu[1] = twos_complement(line[i+16:i+24], 32)
-                data.imu[2] = twos_complement(line[i+24:i+32], 32)
-                data.imu[3] = twos_complement(line[i+32:i+40], 32)
-                data.imu[4] = twos_complement(line[i+40:i+48], 32)
-                data.imu[5] = twos_complement(line[i+48:i+56], 32)
+                data.imu[0] = twos_complement(line[i+8:i+16], 32)	#accel x
+                data.imu[1] = twos_complement(line[i+16:i+24], 32)	#accel y
+                data.imu[2] = twos_complement(line[i+24:i+32], 32)	#accel z
+                data.imu[3] = twos_complement(line[i+32:i+40], 32)	#gyro x
+                data.imu[4] = twos_complement(line[i+40:i+48], 32)	#gyro y
+                data.imu[5] = twos_complement(line[i+48:i+56], 32)	#gyro z
                 i+=81
             else: i+=1
 
@@ -75,8 +79,8 @@ def readSerial(ser,data):
         elif((line[i:i+8])=='32323232' and len(line)-i>=25):
             if(line[i+24:i+26]=='00'):
                 print(line[i:i+26])
-                data.bar[0] = twos_complement(line[i+8:i+16], 32)
-                data.bar[1] = twos_complement(line[i+16:i+24], 32)
+                data.bar[0] = twos_complement(line[i+8:i+16], 32)	#pressure
+                data.bar[1] = twos_complement(line[i+16:i+24], 32)	#temp
                 i+=25
             else:
                 i+=1
@@ -84,7 +88,7 @@ def readSerial(ser,data):
         #GPS Data
         elif((line[i:i+8]=='33333333') and (len(line)-i>=57)):
             if(line[i+56:i+58]=='00'):
-                data.gps[0] = (twos_complement(line[i+8:i+16], 32))/100
+                data.gps[0] = (twos_complement(line[i+8:i+16], 32))/100	#
                 data.gps[1] = (twos_complement(line[i+16:i+24], 32))
                 data.gps[2] = (twos_complement(line[i+24:i+32], 32))
                 if data.gps[1] < 0:
@@ -144,12 +148,17 @@ def readSerial(ser,data):
         else: i+=1
     
     print(data)
+    data.writeToCSV()
     ser.flushInput()
 
 
 if __name__ == "__main__":
     ser = None
     data = AvionicsData()
+    with open('fligthData.csv', 'a') as csvheader:
+            spamwriter = csv.writer(csvheader, delimiter=',', quoting=csv.QUOTE_MINIMAL)
+            spamwriter.writerow(["Acceleration(mg)", "Gyro(mdps)", "Pressure(mbar)","Temp(C)", "GPS Time(UTC)", "Latitude","Longitude", \
+								"Altitude(m)", "Oxi Pressure(psi)", "Combu Pressure(psi)","Phase", "Inj Valve", "Lower Vent"])  
     while(True):
         port = input('Enter a Serial Port to connect to:') #Linux: /dev/ttyUSBx, Windows: COMx
         ser = serial.Serial(port, 9600, timeout=0)
