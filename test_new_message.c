@@ -5,14 +5,19 @@
 #define IMU_SERIAL_MSG_SIZE (36+1)
 #define START_FLAG (0xF0)
 #define END_FLAG (0XF0)
-#define F0_ESCAPE (0xF1F2)
-#define F1_ESCAPE (0xF1F3)
-
+#define F0_ESCAPE (0xF0)
+#define F0_CHAR1 (0xF0)
+#define F0_CHAR2 (0xF1)
+#define F1_CHAR1 (0xF1)
+#define F1_CHAR2 (0xF2)
+#define F1_ESCAPE (0xF1)
+#define FLAGS_AND_CRC_SIZE (6)
 static const int8_t IMU_HEADER_BYTE = 0x31;
 
-uint8_t* Encode(uint8_t* message, int length);
+void Encode(uint8_t* message, int message_length, uint8_t* buffer);
 void writeInt32ToArray(uint8_t* array, int startIndex, int32_t value);
 
+uint32_t crc = 0xABCD1234;
 int main()
 {
 	//use dummy data to test if encoding and construction of final send buffer are correct.
@@ -25,11 +30,10 @@ int main()
 	int32_t magnetoX = 0xABCDEF71;
 	int32_t magnetoY = 8;
 	int32_t magnetoZ = 0xF0;
-	uint32_t crc = 0xABCD1234;
 
 	uint8_t message[IMU_SERIAL_MSG_SIZE] = { 0 };
 	int messageindex = 0;
-	writeInt32ToArray(message, messageindex, IMU_HEADER_BYTE); messageindex++;
+	message[0] = IMU_HEADER_BYTE; messageindex++;
 	writeInt32ToArray(message, messageindex, accelX); 		messageindex += 4;
 	writeInt32ToArray(message, messageindex, accelY); 		messageindex += 4;
 	writeInt32ToArray(message, messageindex, accelZ); 		messageindex += 4;
@@ -42,87 +46,78 @@ int main()
 
 	for (int n = 0; n < IMU_SERIAL_MSG_SIZE; n++)
 	{
-		if (n % 4 == 0)
-			printf("\noriginal message at [%d to %d]:", n, n + 4);
-		printf("%x", message[n]);
+		printf("%x ", message[n]);
 	}
 	int encoded_message_length = IMU_SERIAL_MSG_SIZE;
 	for (int i = 0; i < IMU_SERIAL_MSG_SIZE; i++)
 	{
-		if (message[i] == 0xF0 || message[i] == 0xF1)
+		if (message[i] == F0_CHAR1 || message[i] == F1_ESCAPE)
 		{
 			encoded_message_length++;
 		}
 	}
+	int buffer_length = encoded_message_length + FLAGS_AND_CRC_SIZE;
 	printf("\nExpected encoded message length = %d\n", encoded_message_length);
-	uint8_t* encoded_message = Encode(message, encoded_message_length);
+	uint8_t* buffer = malloc(buffer_length * sizeof(uint8_t));
 
-	for (int m = 1; m < encoded_message_length; m++)
-		{
-			if ((m-1) % 4 == 0)
-				printf("\nencoded message at [%d to %d]:", m-1, m + 4 -1);
-			printf("%x", encoded_message[m]);
-		}
+	//@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+	Encode(message, IMU_SERIAL_MSG_SIZE, buffer);
 
 	
-	uint8_t* buffer = malloc((encoded_message_length+2)* sizeof(uint8_t));
-	buffer[0] = START_FLAG;
-	for (int i = 0; i < encoded_message_length; i++)
-	{
-		buffer[1+i] = encoded_message[i];
-	}
-	buffer[encoded_message_length + 1] = END_FLAG;
-
 	printf("\nfinal  buffer:\n");
-	for (int o = 0; o < encoded_message_length+2; o++)
+	for (int o = 0; o < buffer_length; o++)
 	{
 		printf("%x", buffer[o]);
 		if (o % 10 == 0)
 			printf("\n");
 	}
 	
-
+	free(buffer);
 	return 0;
 }
 
-uint8_t* Encode(uint8_t* message, int length)
+void Encode(uint8_t* message, int message_length, uint8_t* buffer)
 {
-	uint8_t* buffer = malloc(sizeof(uint8_t) * length);
-	int bufferindex = 0;
-	for (int i = 0; i < length; i++)
+	//printf("\nlength = %d\n", message_length);
+	int bufferindex = 1;
+	buffer[0] = START_FLAG;
+	for (int i = 0; i < message_length; i++)
 	{
-		//printf("Encoding %x ...\n", message[i]);
-		if (message[i] == 0xF0)
+
+		//printf("Encoding %x ... using bufferIndex %d, i = %d\n", message[i], bufferindex, i);
+		if (message[i] == F0_ESCAPE)
 		{
-			buffer[bufferindex++] = 0xF0;
-			buffer[bufferindex++] = 0xF1;
+			buffer[bufferindex++] = F0_CHAR1;
+			buffer[bufferindex++] = F0_CHAR2;
 		}
-		else if (message[i] == 0xF1)
+		else if (message[i] == F1_ESCAPE)
 		{
-			buffer[bufferindex++] = 0xF1;
-			buffer[bufferindex++] = 0xF2;
+			buffer[bufferindex++] = F1_CHAR1;
+			buffer[bufferindex++] = F1_CHAR2;
 		}
 		else
 		{
 			buffer[bufferindex++] = message[i];
 		}
 	}
-	return buffer;
+	writeInt32ToArray(buffer, bufferindex, crc); bufferindex += 4;
+	buffer[bufferindex] = END_FLAG;
+	printf("\nfinal buffer index = %d\n", bufferindex);
 }
 
 void writeInt32ToArray(uint8_t* array, int startIndex, int32_t value)
 {
-	//printf("Writing %d ...\n", value);
+	//printf("Writing %x ...\n", value);
 
-	//printf("Writing %d to index+0\n", (value >> 24) & 0xFF);
+	//printf("Writing %x to index+0\n", (value >> 24) & 0xFF);
 	array[startIndex + 0] = (value >> 24) & 0xFF;
 
-	//printf("Writing %d to index+1\n", (value >> 16) & 0xFF);
+	//printf("Writing %x to index+1\n", (value >> 16) & 0xFF);
 	array[startIndex + 1] = (value >> 16) & 0xFF;
 
-	//printf("Writing %d to index+2\n", (value >> 8) & 0xFF);
+	//printf("Writing %x to index+2\n", (value >> 8) & 0xFF);
 	array[startIndex + 2] = (value >> 8) & 0xFF;
 
-	//printf("Writing %d to index+3\n", value & 0xFF);
+	//printf("Writing %x to index+3\n", value & 0xFF);
 	array[startIndex + 3] = (uint8_t)(value & 0xFF);
 }
