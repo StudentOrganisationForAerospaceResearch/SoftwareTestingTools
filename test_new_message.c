@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define IMU_SERIAL_MSG_SIZE (36)
+#define IMU_SERIAL_MSG_SIZE (36+1)
 #define START_FLAG (0xF0)
 #define END_FLAG (0XF0)
 #define F0_ESCAPE (0xF1F2)
@@ -29,7 +29,7 @@ int main()
 
 	uint8_t message[IMU_SERIAL_MSG_SIZE] = { 0 };
 	int messageindex = 0;
-	
+	writeInt32ToArray(message, messageindex, IMU_HEADER_BYTE); messageindex++;
 	writeInt32ToArray(message, messageindex, accelX); 		messageindex += 4;
 	writeInt32ToArray(message, messageindex, accelY); 		messageindex += 4;
 	writeInt32ToArray(message, messageindex, accelZ); 		messageindex += 4;
@@ -46,12 +46,18 @@ int main()
 			printf("\noriginal message at [%d to %d]:", n, n + 4);
 		printf("%x", message[n]);
 	}
-	
-	uint8_t* encoded_message = Encode(message, IMU_SERIAL_MSG_SIZE);
+	int encoded_message_length = IMU_SERIAL_MSG_SIZE;
+	for (int i = 0; i < IMU_SERIAL_MSG_SIZE; i++)
+	{
+		if (message[i] == 0xF0 || message[i] == 0xF1)
+		{
+			encoded_message_length++;
+		}
+	}
+	printf("\nExpected encoded message length = %d\n", encoded_message_length);
+	uint8_t* encoded_message = Encode(message, encoded_message_length);
 
-	int encoded_length = encoded_message[0];
-	int buffer_length = encoded_length + 10;
-	for (int m = 1; m < buffer_length; m++)
+	for (int m = 1; m < encoded_message_length; m++)
 		{
 			if ((m-1) % 4 == 0)
 				printf("\nencoded message at [%d to %d]:", m-1, m + 4 -1);
@@ -59,20 +65,20 @@ int main()
 		}
 
 	
-	uint8_t* buffer = malloc(buffer_length * sizeof(uint8_t));
+	uint8_t* buffer = malloc((encoded_message_length+2)* sizeof(uint8_t));
 	buffer[0] = START_FLAG;
-	buffer[1] = IMU_HEADER_BYTE;
-	for (int i = 0; i < encoded_length; i++)
+	for (int i = 0; i < encoded_message_length; i++)
 	{
-		buffer[i] = encoded_message[i];
+		buffer[1+i] = encoded_message[i];
 	}
-	buffer[buffer_length - 1] = END_FLAG;
+	buffer[encoded_message_length + 1] = END_FLAG;
 
-	for (int o = 1; o < buffer_length; o++)
+	printf("\nfinal  buffer:\n");
+	for (int o = 0; o < encoded_message_length+2; o++)
 	{
-		if (o % 4 == 0)
-			printf("\nfinal  buffer at [%d to %d]:", o , o + 4);
 		printf("%x", buffer[o]);
+		if (o % 10 == 0)
+			printf("\n");
 	}
 	
 
@@ -81,28 +87,26 @@ int main()
 
 uint8_t* Encode(uint8_t* message, int length)
 {
-	uint8_t* buffer = malloc(2 * sizeof(uint8_t) * length);
+	uint8_t* buffer = malloc(sizeof(uint8_t) * length);
 	int bufferindex = 0;
 	for (int i = 0; i < length; i++)
 	{
 		//printf("Encoding %x ...\n", message[i]);
 		if (message[i] == 0xF0)
 		{
-			buffer[1+bufferindex++] = 0xF0;
-			buffer[1+bufferindex++] = 0xF1;
+			buffer[bufferindex++] = 0xF0;
+			buffer[bufferindex++] = 0xF1;
 		}
 		else if (message[i] == 0xF1)
 		{
-			buffer[1+bufferindex++] = 0xF1;
-			buffer[1+bufferindex++] = 0xF2;
+			buffer[bufferindex++] = 0xF1;
+			buffer[bufferindex++] = 0xF2;
 		}
 		else
 		{
-			buffer[1+bufferindex++] = message[i];
+			buffer[bufferindex++] = message[i];
 		}
 	}
-	buffer[0] = bufferindex+1;
-	printf("\n\nFinal buffer size = %d\n", buffer[0]);
 	return buffer;
 }
 
